@@ -19,12 +19,17 @@ export default function Dashboard() {
         );
         setItems(res.data.images || []);
       } catch (e) {
+        console.error(
+          "❌ Dashboard error:",
+          e.response?.status,
+          e.response?.data
+        );
         setError("Failed to load dashboard");
       } finally {
         setLoading(false);
       }
     };
-    run();
+    if (token) run();
   }, [token]);
 
   if (loading)
