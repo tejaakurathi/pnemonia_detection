@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -11,32 +13,38 @@ import statsRoutes from "./routes/statsRoutes.js";
 
 const app = express();
 const allowedOrigins = [
+  "https://dj62t8i8j93hf.cloudfront.net", // ✅ your frontend CloudFront
   "http://localhost:3000",
   "http://localhost:5173",
   "http://13.233.85.152:5173",
   "http://13.233.85.152",
 ];
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Amz-Date",
-      "X-Api-Key",
-      "X-Amz-Security-Token",
-    ],
-    credentials: true,
-  })
-);
 
+const corsOptions = {
+  origin: function (origin, callback) {
+    // ✅ Allow requests without Origin (e.g., CloudFront, Postman, or direct server calls)
+    if (!origin) return callback(null, true);
+
+    // ✅ Allow all matching CloudFront subdomains (just in case)
+    if (allowedOrigins.includes(origin) || origin.endsWith(".cloudfront.net")) {
+      return callback(null, true);
+    }
+
+    console.log("❌ Blocked by CORS:", origin);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Amz-Date",
+    "X-Api-Key",
+    "X-Amz-Security-Token",
+  ],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan("dev"));
 
