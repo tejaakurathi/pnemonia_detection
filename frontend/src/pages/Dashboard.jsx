@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // console.log("🔑 Token:", token);
     const run = async () => {
       try {
         const res = await axios.get(

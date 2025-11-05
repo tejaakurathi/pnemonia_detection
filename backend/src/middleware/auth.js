@@ -7,15 +7,25 @@ const client = jwksClient({
 
 function getKey(header, callback) {
   client.getSigningKey(header.kid, (err, key) => {
-    if (err) return callback(err);
-    const signingKey = key.getPublicKey();
-    callback(null, signingKey);
+    if (err) {
+      console.error("❌ JWKS key fetch error:", err);
+      return callback(err);
+    }
+
+    try {
+      const signingKey = key.getPublicKey();
+      callback(null, signingKey);
+    } catch (e) {
+      console.error("❌ Error extracting public key:", e);
+      callback(e);
+    }
   });
 }
 
 export async function authCognitoMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Missing token" });
     }
