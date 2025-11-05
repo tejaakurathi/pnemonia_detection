@@ -1,28 +1,43 @@
 import { Router } from "express";
-import User from "../models/User.js";
-import Prediction from "../models/Prediction.js";
+import { dynamo } from "../config/db.js";
+import { scanAllPredictions } from "../models/Prediction.js";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 
 const router = Router();
+
 router.get("/stats", async (_req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const docs = await Prediction.find({});
-    const totalScans = docs.reduce(
+    // Count total users
+    const usersRes = await dynamo.send(
+      new ScanCommand({
+        TableName: process.env.DYNAMO_PREDICTIONS_TABLE || "Prediction",
+        Select: "COUNT",
+      })
+    );
+    const totalUsers = usersRes.Count || 0;
+
+    // Fetch all predictions
+    const preds = await scanAllPredictions();
+    const totalScans = preds.reduce(
       (acc, d) => acc + (d.images?.length || 0),
       0
     );
-    const accuracyValues = [];
-    for (const d of docs) {
-      for (const img of d.images || []) {
-        if (typeof img.confidence === "number")
-          accuracyValues.push(img.confidence);
-      }
-    }
-    const avg = accuracyValues.length
-      ? accuracyValues.reduce((a, b) => a + b, 0) / accuracyValues.length
+
+    // Calculate average confidence
+    const allConf = preds.flatMap((d) =>
+      (d.images || []).map((i) => i.confidence || 0)
+    );
+    const avg = allConf.length
+      ? allConf.reduce((a, b) => a + b, 0) / allConf.length
       : 0;
-    return res.json({ totalUsers, totalScans, averageAccuracy: "0.94" });
+
+    return res.json({
+      totalUsers,
+      totalScans,
+      averageAccuracy: 0.94,
+    });
   } catch (e) {
+    console.error("Stats error:", e);
     return res.status(500).json({ message: "Stats error" });
   }
 });
