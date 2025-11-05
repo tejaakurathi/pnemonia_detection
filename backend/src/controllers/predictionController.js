@@ -7,7 +7,10 @@ import {
   SageMakerRuntimeClient,
   InvokeEndpointCommand,
 } from "@aws-sdk/client-sagemaker-runtime";
-import Prediction from "../models/Prediction.js";
+import {
+  addPredictionImage,
+  getPredictionsByUser,
+} from "../models/Prediction.js";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 const sagemaker = new SageMakerRuntimeClient({
@@ -35,7 +38,7 @@ export async function handleUpload(req, res) {
     const username = req.user.username;
 
     const IMG_SIZE = 224;
-    const { data, info } = await sharp(req.file.path)
+    const { data } = await sharp(req.file.path)
       .resize(IMG_SIZE, IMG_SIZE)
       .toFormat("png")
       .removeAlpha()
@@ -55,6 +58,7 @@ export async function handleUpload(req, res) {
 
     const payload = JSON.stringify({ instances: [arr] });
 
+    // Upload original image to S3
     const s3Key = `uploads/${req.file.filename}`;
     await s3.send(
       new PutObjectCommand({
@@ -67,6 +71,7 @@ export async function handleUpload(req, res) {
 
     const imageUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 
+    // Invoke SageMaker endpoint
     const response = await sagemaker.send(
       new InvokeEndpointCommand({
         EndpointName: process.env.SAGEMAKER_ENDPOINT_NAME,
@@ -83,23 +88,20 @@ export async function handleUpload(req, res) {
     const predictions = result.predictions?.[0];
 
     if (predictions && predictions.length === 1) {
-      const prob = predictions[0]; // probability of Pneumonia
-      const threshold = 0.5; // adjust if needed
+      const prob = predictions[0];
+      const threshold = 0.5;
       label = prob > threshold ? "Pneumonia" : "Normal";
       confidence = prob;
     }
 
-    console.log("💾 [MongoDB Save] Using username:", username);
-    let doc = await Prediction.findOne({ username });
-    if (!doc) doc = await Prediction.create({ username, images: [] });
-
-    doc.images.unshift({
+    // Save prediction in DynamoDB (instead of MongoDB)
+    await addPredictionImage(username, {
       imageUrl,
       prediction: label,
       confidence,
       segmentationMapUrl: null,
+      uploadedAt: new Date().toISOString(),
     });
-    await doc.save();
 
     fs.unlinkSync(req.file.path);
 
@@ -119,9 +121,10 @@ export async function handleUpload(req, res) {
 export async function getDashboard(req, res) {
   try {
     const username = req.user.username;
-    const doc = await Prediction.findOne({ username });
+    const doc = await getPredictionsByUser(username);
     return res.json({ username, images: doc?.images || [] });
   } catch (e) {
+    console.error("Dashboard error:", e);
     return res.status(500).json({ message: "Dashboard error" });
   }
 }

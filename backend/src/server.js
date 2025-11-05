@@ -61,11 +61,11 @@ app.use("/api", predictionRoutes);
 app.use("/api", statsRoutes);
 
 const PORT = process.env.PORT || 5000;
+
 async function start() {
-  await connectToDatabase(process.env.MONGODB_URI);
+  await connectToDatabase(); // no mongo URI needed
   app.listen(PORT, "0.0.0.0", () => console.log(`Server running on :${PORT}`));
 }
-
 start().catch((e) => {
   console.error("Failed to start server", e);
   process.exit(1);
