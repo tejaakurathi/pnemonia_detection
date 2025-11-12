@@ -10,5 +10,6 @@ const router = Router();
 
 router.post("/upload", authCognitoMiddleware, uploadMiddleware, handleUpload);
 router.get("/dashboard", authCognitoMiddleware, getDashboard);
+router.get("/dashboard-test-v", getDashboard);
 
 export default router;
