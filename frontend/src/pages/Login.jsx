@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 import { Mail, Lock } from "lucide-react";
-import { signIn, fetchAuthSession, signOut } from "aws-amplify/auth";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,29 +17,24 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // ✅ If user already signed in, sign them out first
-      await signOut({ global: true }).catch(() => {});
+      const res = await axios.post(
+        import.meta.env.VITE_API_URL + "/login",
+        {
+          identifier: form.username,
+          password: form.password,
+        }
+      );
 
-      // ✅ Sign in the user
-      const user = await signIn({
-        username: form.username,
-        password: form.password,
-      });
+      console.log("✅ Signed in user successfully");
 
-      console.log("✅ Signed in user:", user);
+      const { token, user } = res.data;
 
-      // ✅ Fetch tokens using new API
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-
-      if (!token) throw new Error("Failed to fetch Cognito token");
-
-      // ✅ Save token locally or in context
+      // Save token locally or in context
       login({
         token,
         user: {
-          username: form.username,
-          email: user?.userId || "",
+          username: user.username,
+          email: user.email || "",
         },
       });
 
@@ -49,7 +43,7 @@ export default function Login() {
       navigate("/dashboard");
     } catch (err) {
       console.error("Sign-in error:", err);
-      setError(err.message || "Login failed");
+      setError(err.response?.data?.message || err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -81,13 +75,13 @@ export default function Login() {
 
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700">
-            Username
+            Username or Email
           </label>
           <div className="relative mt-1">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="username"
+              placeholder="Username or Email"
               className="w-full rounded-md border px-10 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
               value={form.username}
               onChange={(e) =>

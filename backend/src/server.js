@@ -10,37 +10,14 @@ import { connectToDatabase } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import predictionRoutes from "./routes/predictionRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
+import fs from "fs";
 
 const app = express();
-const allowedOrigins = [
-  "https://dj62t8i8j93hf.cloudfront.net", // ✅ your frontend CloudFront
-  "http://localhost:3000",
-  "http://localhost:5173",
-  "http://13.233.85.152:5173",
-  "http://13.233.85.152",
-];
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    // ✅ Allow requests without Origin (e.g., CloudFront, Postman, or direct server calls)
-    if (!origin) return callback(null, true);
-
-    // ✅ Allow all matching CloudFront subdomains (just in case)
-    if (allowedOrigins.includes(origin) || origin.endsWith(".cloudfront.net")) {
-      return callback(null, true);
-    }
-
-    console.log("❌ Blocked by CORS:", origin);
-    return callback(new Error("Not allowed by CORS"));
-  },
+  origin: true, // Allow all origins for local ease-of-use
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Amz-Date",
-    "X-Api-Key",
-    "X-Amz-Security-Token",
-  ],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 
@@ -48,12 +25,17 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan("dev"));
 
-// static files for uploaded images
+// Static files for uploaded images
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use("/uploads", express.static(path.join(process.cwd(), "src", "uploads")));
-app.use("/public", express.static(path.join(__dirname, "uploads")));
+// Ensure the local upload folder exists
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+app.use("/uploads", express.static(uploadsDir));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api", authRoutes);
@@ -63,10 +45,10 @@ app.use("/api", statsRoutes);
 const PORT = process.env.PORT || 5000;
 async function start() {
   await connectToDatabase(process.env.MONGODB_URI);
-  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on :${PORT}`));
+  app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Local Server running on http://localhost:${PORT}`));
 }
 
 start().catch((e) => {
-  console.error("Failed to start server", e);
+  console.error("❌ Failed to start server:", e);
   process.exit(1);
 });

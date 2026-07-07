@@ -1,16 +1,19 @@
 import mongoose from 'mongoose'
 
 const imageSchema = new mongoose.Schema({
-  imageUrl: String,
-  prediction: String,
-  confidence: Number,
+  imageUrl: { type: String, required: true },
+  prediction: { type: String, required: true },
+  confidence: { type: Number, required: true },
   segmentationMapUrl: String,
-  uploadedAt: { type: Date, default: Date.now }
-})
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
 
 const predictionSchema = new mongoose.Schema({
   username: { type: String, required: true },
   images: [imageSchema]
-}, { timestamps: true })
+}, { timestamps: true });
 
 export default mongoose.model('Prediction', predictionSchema)
